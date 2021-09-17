@@ -65,19 +65,19 @@ jobs:
     condition: not(startsWith(variables['Build.SourceBranch'], 'refs/tags/'))
     # Steps in this Job
     steps:
-     - script: |
+      - script: |
           sudo apt get install sbt
           sbt assembly
         
-     - task: DockerCompose@0
-       displayName: Build services
-       inputs:
-         action: Build services
-         dockerComposeFile: seasadj.yml
-         projectName: $(Build.Repository.Name)
-         qualifyImageNames: true
-         additionalImageTags: $(Build.BuildId)
-         containerregistrytype: Container Registry
+      - task: DockerCompose@0
+        displayName: Build services
+        inputs:
+          action: Build services
+          dockerComposeFile: seasadj.yml
+          projectName: $(Build.Repository.Name)
+          qualifyImageNames: true
+          additionalImageTags: $(Build.BuildId)
+          containerregistrytype: Container Registry
 
       # Authenticate Docker to GCR using predefined service connection
       - task: Docker@2
