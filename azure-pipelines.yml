@@ -69,71 +69,15 @@ jobs:
           sudo apt install sbt
           sbt assembly
         
-      - task: DockerCompose@0
-        displayName: Build services
-        inputs:
-          action: Build services
-          dockerComposeFile: docker-compose.yml
-          projectName: $(Build.Repository.Name)
-          qualifyImageNames: true
-          additionalImageTags: $(Build.BuildId)
-          containerregistrytype: Container Registry
 
-      # Authenticate Docker to GCR using predefined service connection
-      - task: Docker@2
-        displayName: 'Login to GCR'
-        inputs:
-          command: login
-          containerRegistry: gcrServiceConnection
+      - template: 'docker/docker-build-image-and-push-to-gcr.yml@templates'
+        parameters:
+          imageName: $(imageName)
+          repoName: $(repoName)
+          Dockerfile: docker/Dockerfile
+      # Download file with json-key to GCR as a l
 
-      # Push Docker Image to GCR
-      - task: DockerCompose@0
-        displayName: Push services
-        inputs:
-          action: Push services
-          dockerComposeFile: docker-compose.yml
-          projectName: $(Build.Repository.Name)
-          qualifyImageNames: true
-          additionalImageTags: $(Build.BuildId)
-          containerregistrytype: Container Registry
-          dockerRegistryEndpoint: gcrServiceConnection
 
-      # Download file with json-key to GCR as a later task needs to
-      # authenticate in a different way than using service connection
-      # File is stored in Pipelines->Library->Secure Files
-      - task: DownloadSecureFile@1
-        name: gcrJsonKey
-        displayName: 'Download gcr creds'
-        inputs:
-          secureFile: 'gcr-key.json'
-
-      # Set env variable pointing to the file downloaded in previous task
-      # as a library in next task needs this env variable
-      - script: |
-          echo "Setting env variable GOOGLE_APPLICATION_CREDENTIALS"
-          echo "##vso[task.setvariable variable=GOOGLE_APPLICATION_CREDENTIALS]$(gcrJsonKey.secureFilePath)"
-        displayName: 'Setting GOOGLE_APPLICATION_CREDENTIALS env variable'
-      # Wait for scan on image in GCR to complete and check for any vulnerabilities
-      # with effective severity HIGH or CRITICAL
-      - task: gcr-vulneralbility-check@0
-        displayName: 'Image vulnerability check'
-        inputs:
-          projectId: 'prod-bip'
-          imageHost: $(imageHost)
-          image: $(repoName)
-          imageTag: $(imageTagBeforeVulnerabilityScan)
-          timeBetweenRetries: '10000'
-
-      - script: |
-          TAG=`git describe --tags`
-          echo $TAG
-          cat $(gcrJsonKey.secureFilePath) | docker login -u _json_key --password-stdin $(imageHost)
-          docker pull $(imageName):$(imageTagBeforeVulnerabilityScan)
-          docker tag $(imageName):$(imageTagBeforeVulnerabilityScan) $(imageName):$(imageTagAfterVulnerabilityScan)
-          docker push $(imageName):$(imageTagAfterVulnerabilityScan)
-        displayName: "Retagging docker image if successful vulnerability scan"
-        condition: succeeded()
-  
   # Pull and retag docker image. Will only run if it is a tag-operation on the repo.
   # See https://github.com/statisticsnorway/azure-pipelines-templates/blob/master/docker/docker-tag-for-production.yml
   # and deploy_to_production.md
