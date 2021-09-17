@@ -13,9 +13,6 @@ pr:
   branches:
     include:
       - 'master'
-  tags:
-    include:
-      - '*'
 
 # Pipeline will be run on this base image
 pool:
