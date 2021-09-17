@@ -80,22 +80,22 @@ jobs:
           containerregistrytype: Container Registry
 
       # Authenticate Docker to GCR using predefined service connection
-      - task: Docker@2
+      - task: DockerCompose@0
         displayName: 'Login to GCR'
         inputs:
-          command: login
-          containerRegistry: gcrServiceConnection
-
+          containerregistrytype: Container Registry
+          dockerRegistryEndpoint: gcrServiceConnection
       # Push Docker Image to GCR
-      - task: Docker@2
-        displayName: 'Push image'
+      - task: DockerCompose@0
+        displayName: Push services
         inputs:
-          ContainerRegistry: |
-            gcrServiceConnection
-          repository: $(repoName)
-          command: 'push'
-          tags: |
-            $(imageTagBeforeVulnerabilityScan)
+          action: Push services
+          dockerComposeFile: seasadj.yml
+          projectName: $(Build.Repository.Name)
+          qualifyImageNames: true
+          additionalImageTags: $(Build.BuildId)
+          containerregistrytype: Container Registry
+
       # Download file with json-key to GCR as a later task needs to
       # authenticate in a different way than using service connection
       # File is stored in Pipelines->Library->Secure Files
