@@ -54,7 +54,7 @@ resources:
       # Service connection in the Stratus project on Pipelines
       # with access to the template repository. Change to correct
       # endpoint
-      endpoint: github
+      endpoint: statisticsnorway
 
 # Job which runs mvn test and verify, Sonar Analysis (if branch is master), mvn install,
 # builds Docker image, pushes this to GCR and checks for any image vulnerabilities
