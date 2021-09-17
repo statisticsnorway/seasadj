@@ -68,13 +68,12 @@ jobs:
       - script: |
           sudo apt install sbt
           sbt assembly
-        
 
       - template: 'docker/docker-build-image-and-push-to-gcr.yml@templates'
         parameters:
           imageName: $(imageName)
           repoName: $(repoName)
-          Dockerfile: docker/Dockerfile
+          Dockerfile: docker/Dockerfile.alt
       # Download file with json-key to GCR as a l
 
 
