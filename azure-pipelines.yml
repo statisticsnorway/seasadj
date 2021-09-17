@@ -1,0 +1,144 @@
+name: $(Build.SourceBranch)-$(date:yyyyMMdd)$(rev:.r)
+# Pipeline triggers on any branch and tag on push/merge/commit
+trigger:
+  branches:
+    include:
+    - 'master'
+  tags:
+    include:
+    - '*'
+
+# Pipeline triggers on pull-request against any branch and tag
+pr:
+  branches:
+    include:
+      - 'master'
+  tags:
+    include:
+      - '*'
+
+# Pipeline will be run on this base image
+pool:
+  vmImage: 'ubuntu-latest'
+
+# Variables global to this pipeline
+# https://docs.microsoft.com/en-us/azure/devops/pipelines/process/variables
+variables:
+  # Variables defined in Pipelines->Library->Variable Groups in your project in
+  # Azure Pipelines
+  - group: Hemmeligheter
+  # Variables defined here
+  - name: fullSha
+    value: '$(Build.SourceVersion)'
+  - name: imageHost
+    value: 'https://eu.gcr.io/'
+  - name: imageName
+    value: 'eu.gcr.io/prod-bip/ssb/dapla/x13-seat'
+  - name: repoName
+    value: 'prod-bip/ssb/dapla/x13-seat'
+  - name: imageTagBeforeVulnerabilityScan
+    value: 'imagescan-$(Build.SourceBranchName)-$(fullSha)'
+  - name: imageTagAfterVulnerabilityScan
+    value: $(Build.SourceBranchName)-$(fullSha)
+  - name:  MAVEN_CACHE_FOLDER
+    value: $(Pipeline.Workspace)/.m2/repository
+  - name: MAVEN_OPTS
+    value: '-Dmaven.repo.local=$(MAVEN_CACHE_FOLDER)'
+
+resources:
+  repositories:
+    # See https://github.com/statisticsnorway/ssb-developer-guide/blob/master/docs/azure_pipeline_doc.md#templating
+    # for info on how to use the templates repo
+    - repository: templates
+      type: github
+      name: statisticsnorway/azure-pipelines-templates
+      # The version of the repo on GitHub. Change to needed version
+      ref: refs/tags/1.1.12
+      # Service connection in the Stratus project on Pipelines
+      # with access to the template repository. Change to correct
+      # endpoint
+      endpoint: github
+
+# Job which runs mvn test and verify, Sonar Analysis (if branch is master), mvn install,
+# builds Docker image, pushes this to GCR and checks for any image vulnerabilities
+jobs:
+  - job: buildTestDockerBuildDockerPush
+    displayName: 'Test/build app and Dockerimage'
+    # Job condition: Run these jobs on any branch, but not on tags
+    condition: not(startsWith(variables['Build.SourceBranch'], 'refs/tags/'))
+    # Steps in this Job
+    steps:
+     - script: |
+          sudo apt get install sbt
+          sbt assembly
+        
+     - task: DockerCompose@0
+       displayName: Build services
+       inputs:
+         action: Build services
+         dockerComposeFile: seasadj.yml
+         projectName: $(Build.Repository.Name)
+         qualifyImageNames: true
+         additionalImageTags: $(Build.BuildId)
+         containerregistrytype: Container Registry
+
+      # Authenticate Docker to GCR using predefined service connection
+      - task: Docker@2
+        displayName: 'Login to GCR'
+        inputs:
+          command: login
+          containerRegistry: gcrServiceConnection
+
+      # Push Docker Image to GCR
+      - task: Docker@2
+        displayName: 'Push image'
+        inputs:
+          ContainerRegistry: |
+            gcrServiceConnection
+          repository: $(repoName)
+          command: 'push'
+          tags: |
+            $(imageTagBeforeVulnerabilityScan)
+      # Download file with json-key to GCR as a later task needs to
+      # authenticate in a different way than using service connection
+      # File is stored in Pipelines->Library->Secure Files
+      - task: DownloadSecureFile@1
+        name: gcrJsonKey
+        displayName: 'Download gcr creds'
+        inputs:
+          secureFile: 'gcr-key.json'
+
+      # Set env variable pointing to the file downloaded in previous task
+      # as a library in next task needs this env variable
+      - script: |
+          echo "Setting env variable GOOGLE_APPLICATION_CREDENTIALS"
+          echo "##vso[task.setvariable variable=GOOGLE_APPLICATION_CREDENTIALS]$(gcrJsonKey.secureFilePath)"
+        displayName: 'Setting GOOGLE_APPLICATION_CREDENTIALS env variable'
+      # Wait for scan on image in GCR to complete and check for any vulnerabilities
+      # with effective severity HIGH or CRITICAL
+      - task: gcr-vulneralbility-check@0
+        displayName: 'Image vulnerability check'
+        inputs:
+          projectId: 'prod-bip'
+          imageHost: $(imageHost)
+          image: $(repoName)
+          imageTag: $(imageTagBeforeVulnerabilityScan)
+          timeBetweenRetries: '10000'
+
+      - script: |
+          TAG=`git describe --tags`
+          echo $TAG
+          cat $(gcrJsonKey.secureFilePath) | docker login -u _json_key --password-stdin $(imageHost)
+          docker pull $(imageName):$(imageTagBeforeVulnerabilityScan)
+          docker tag $(imageName):$(imageTagBeforeVulnerabilityScan) $(imageName):$(imageTagAfterVulnerabilityScan)
+          docker push $(imageName):$(imageTagAfterVulnerabilityScan)
+        displayName: "Retagging docker image if successful vulnerability scan"
+        condition: succeeded()
+  
+  # Pull and retag docker image. Will only run if it is a tag-operation on the repo.
+  # See https://github.com/statisticsnorway/azure-pipelines-templates/blob/master/docker/docker-tag-for-production.yml
+  # and deploy_to_production.md
+  - template: docker/docker-tag-for-production.yml@templates
+    parameters:
+      tagToTag: 'master-$(fullSha)'
+      gcrImageName: $(imageName)
