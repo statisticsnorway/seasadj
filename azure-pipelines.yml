@@ -66,14 +66,14 @@ jobs:
     # Steps in this Job
     steps:
       - script: |
-          sudo apt get install sbt
+          sudo apt install sbt
           sbt assembly
         
       - task: DockerCompose@0
         displayName: Build services
         inputs:
           action: Build services
-          dockerComposeFile: seasadj.yml
+          dockerComposeFile: docker-compose.yml
           projectName: $(Build.Repository.Name)
           qualifyImageNames: true
           additionalImageTags: $(Build.BuildId)
@@ -85,12 +85,13 @@ jobs:
         inputs:
           containerregistrytype: Container Registry
           dockerRegistryEndpoint: gcrServiceConnection
+          
       # Push Docker Image to GCR
       - task: DockerCompose@0
         displayName: Push services
         inputs:
           action: Push services
-          dockerComposeFile: seasadj.yml
+          dockerComposeFile: docker-compose.yml
           projectName: $(Build.Repository.Name)
           qualifyImageNames: true
           additionalImageTags: $(Build.BuildId)
