@@ -3,10 +3,10 @@ name: $(Build.SourceBranch)-$(date:yyyyMMdd)$(rev:.r)
 trigger:
   branches:
     include:
-    - 'master'
+      - 'master'
   tags:
     include:
-    - '*'
+      - '*'
 
 # Pipeline triggers on pull-request against any branch and tag
 pr:
