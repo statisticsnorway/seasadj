@@ -83,9 +83,10 @@ jobs:
       - task: DockerCompose@0
         displayName: 'Login to GCR'
         inputs:
+          action: login
           containerregistrytype: Container Registry
           dockerRegistryEndpoint: gcrServiceConnection
-          
+
       # Push Docker Image to GCR
       - task: DockerCompose@0
         displayName: Push services
