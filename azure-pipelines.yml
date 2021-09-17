@@ -96,6 +96,7 @@ jobs:
           qualifyImageNames: true
           additionalImageTags: $(Build.BuildId)
           containerregistrytype: Container Registry
+          dockerRegistryEndpoint: gcrServiceConnection
 
       # Download file with json-key to GCR as a later task needs to
       # authenticate in a different way than using service connection
