@@ -34,13 +34,13 @@ On a Linux platform, it is relatively easy to build X13-ARIMA-SEATS from source,
 Alternatively, the service is easily containerised, and a simple example Dockerfile is included.  To build the container run:
 
 ```bash
-docker-compose -f docker-compose.yml build
+docker-compose -f seasadj.yml build
 ```
 
 N.b. this still assumes `sbt assembly` has been run, and `target/scala-2.13/seasadj.jar` exists.  There is an alternate Dockerfile, `docker/Dockerfile.alt` which will copy the source and compile as part of the build, but it will take a little while to build.  Either way, to run the service:
 
 ```bash
-docker-compose -f docker-compose.yml up -d
+docker-compose -f seasadj.yml up -d
 ```
 
 ## Overview X13-ARIMA-SEATS
