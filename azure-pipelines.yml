@@ -69,6 +69,16 @@ jobs:
           sudo apt install sbt
           sbt assembly
 
+      - task: DockerCompose@0
+        displayName: Build services
+        inputs:
+          action: Build services
+          dockerComposeFile: seasadj.yml
+          projectName: $(Build.Repository.Name)
+          qualifyImageNames: true
+          additionalImageTags: $(Build.BuildId)
+          containerregistrytype: Container Registry
+          
       - template: 'docker/docker-build-image-and-push-to-gcr.yml@templates'
         parameters:
           imageName: $(imageName)
