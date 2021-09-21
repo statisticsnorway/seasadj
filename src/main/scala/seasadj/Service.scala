@@ -181,8 +181,4 @@ object Service extends App with CORSHandler {
   val bindingFuture = Http().bindAndHandle(route, "0.0.0.0", 9001)
 
   println(s"Server online at http://localhost:9001/seasadj\nPress ENTER to stop...")
-  StdIn.readLine() 
-  bindingFuture
-    .flatMap(_.unbind()) 
-    .onComplete(_ => system.terminate()) 
 }
